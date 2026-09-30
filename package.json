@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "vite",
+    "dev:open": "vite --open",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

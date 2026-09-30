@@ -3,7 +3,6 @@ name: Publish game to GitHub Pages
 on:
   push:
     branches: [main]
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -14,7 +13,7 @@ concurrency:
 
 jobs:
   build:
-    if: github.repository == 'haru328/buddha-musou'
+    if: github.repository == 'masayanz/buddha-musou'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4

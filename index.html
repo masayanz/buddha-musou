@@ -13,6 +13,18 @@
       <div id="ui-root"><section class="boot-screen"><h1>仏像無双（仮）</h1><p role="status">寺院を読み込んでいます…</p></section></div>
     </main>
     <noscript>このゲームにはJavaScriptが必要です。</noscript>
+    <script>
+      if (location.protocol === 'file:') {
+        const status = document.querySelector('.boot-screen [role="status"]');
+        if (status) {
+          status.textContent = 'このゲームはVite開発サーバーから起動してください。';
+          const steps = document.createElement('pre');
+          steps.textContent = 'PowerShell（このフォルダーで実行）:\nnpm ci\nnpm run dev\n\nアクセス: http://127.0.0.1:5173/';
+          steps.style.whiteSpace = 'pre-wrap';
+          status.after(steps);
+        }
+      }
+    </script>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

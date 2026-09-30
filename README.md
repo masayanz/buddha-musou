@@ -3,11 +3,39 @@
 このリポジトリは、ブラウザで動作する「仏像 vs 落武者」の無双風3Dアクションゲームを、
 Three.jsで実装するプロトタイプです。金色の仏像で群れを薙ぎ払い、1,000体撃破と三拠点の怨将討伐を目指します。
 
+## 開発中の起動（Windows 11 / PowerShell）
+
+Node.js 22.12以上とnpmを用意し、cloneしたフォルダーで実行します。
+
+```powershell
+cd D:\vsgame\buddha-musou
+npm ci
+npm run dev
+```
+
+表示されたURL（通常は `http://127.0.0.1:5173/`）をChrome / Edgeで開きます。
+`npm run dev:open` なら開発サーバーの起動時に既定のブラウザーも開きます。停止は `Ctrl+C` です。
+`index.html` を直接ダブルクリックして `file://` で開くとゲームは起動しません。
+
+## Production確認
+
+```powershell
+npm run build
+npm run preview
+```
+
+プレビュー用に表示されたURLをブラウザーで開きます。ビルド結果は `dist/` に出力されます。
+GitHub Pages向けのビルドをWindows PowerShellで確認する場合は、引数を正しく渡すため次を実行します。
+
+```powershell
+npm.cmd run build -- --mode pages --base=/buddha-musou/
+```
+
 ## ブラウザーで遊ぶ
 
-[仏像無双をプレイ](https://haru328.github.io/buddha-musou/) — PC・キーボード向け。インストール不要です。
+[仏像無双をプレイ](https://masayanz.github.io/buddha-musou/) — PC・キーボード向け。インストール不要です（本家のGitHub Pages公開後）。
 
-`haru328/buddha-musou` の `main` 更新時に、GitHub Actionsが型チェック・テスト・ビルドを実行し、
+`masayanz/buddha-musou` の `main` 更新時に、GitHub Actionsが型チェック・テスト・ビルドを実行し、
 成功したゲームの `dist/` だけをGitHub Pagesへ公開します。設定は `.github/workflows/pages.yml`。
 公開用の `pages` モードでは、未使用の参考画像を含む `public/` はコピーしません。
 他のリポジトリではこの公開処理は実行されません。
@@ -41,28 +69,15 @@ Three.jsで実装するプロトタイプです。金色の仏像で群れを薙
 
 敵の赤い予備動作が見えたら回避。通常攻撃で仏力を溜め、囲まれたら強攻撃や仏技で切り抜けられます。
 
-## 開発環境と起動
+## 開発環境と確認
 
-Node.js 22.12以上（推奨：Node.js 24 LTS）とnpmを用意してください。
-リポジトリのルートで実行します。
-
-```powershell
-npm install
-npm run dev
-```
-
-ターミナルに表示されたURL（通常は `http://127.0.0.1:5173`）をChrome / Edgeで開きます。
 タイトルで「出陣」を押すと戦闘が始まります。
-サーバーは `Ctrl+C` で停止できます。
 
 ```powershell
 npm run typecheck
 npm test
-npm run build
-npm run preview
 ```
 
-ビルド結果は `dist/` に出力されます。`npm run preview` で本番ビルドをローカル確認できます。
 再現可能な依存インストールには、コミット済みの `package-lock.json` と `npm ci` を使用してください。
 WebGLが利用できない場合は、画面に起動失敗メッセージを表示します。
 
