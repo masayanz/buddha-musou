@@ -1,10 +1,25 @@
 # 仏像無双（仮）
 # プロトタイプ統合仕様書
 
-Version: 1.0.0-prototype  
+Version: 1.2.0-battlefield
 Status: Implementation Ready  
 Target: Desktop Browser  
 Source of Truth: 本ファイル
+
+2026-09-29 追加改訂：進行方向へ回る背後追従カメラ、回転する全体ミニマップ、210×210の寺院戦場、
+雑兵・武者・重装兵・中ボスの4種を実装する。中央から西院・東院・南庭へ移動し、
+1,000体撃破かつ三拠点の怨将をすべて討伐すると勝利する。旧スコープのボス除外は簡易中ボスについて撤回する。
+完成版モデルは引き続き後工程とし、参考画像に沿う写実寄りの造形方針を `docs/ART_DIRECTION.md` に記す。
+
+2026-09-29 改訂：ユーザーの「三國無双・戦国無双のような無双アクション」という要望に合わせ、
+従来の50体目標・遅い狭範囲攻撃を改定した。初期50体、目標70体、最大96体とし、
+連打／長押しコンボ、広範囲の錫杖攻撃、踏み込み、方向補助、実際の空中吹き飛ばしを採用する。
+実プレイで100体撃破が約7秒で終了したため、クリア条件を1000体撃破「一騎当千」へ改訂する。
+連携・強攻撃・仏技を繰り返して楽しめる長さを確保する。HP0・再挑戦のゲームフローと、
+軽量なProcedural Geometry構成は維持する。
+同改訂で、命中時の停止・カメラ反応、金色の光弧と粒子、炎・煙・影・金属反射、
+墨と朱色のHUD、消音可能なWeb Audio合成打撃音を体験改善として実装する。
+以下の旧スコープ除外のうち、軽量な効果音と戦闘エフェクト・HUDはこの改訂を優先する。
 
 ---
 
@@ -85,8 +100,8 @@ COMBOが増える
 
 ## 敵
 
-- 30体以上が同時出現
-- 目標50体前後
+- 初期50体が同時出現
+- 目標70体前後
 - プレイヤーへ接近
 - 簡易Separation
 - 攻撃
@@ -114,12 +129,12 @@ COMBOが増える
 
 ## 終了条件
 
-- 100体撃破でクリア
+- 1000体撃破かつ怨将3体討伐でクリア
 - HP 0でゲームオーバー
 
 ## 品質
 
-- 50体前後の敵との戦闘で30 FPS以上を目標
+- 70体前後の敵との戦闘で30 FPS以上を目標
 - `npm run typecheck` 成功
 - `npm test` 成功
 - `npm run build` 成功
@@ -133,11 +148,11 @@ COMBOが増える
 - 完成版3Dモデル
 - 完成版キャラクターアニメーション
 - BGM
-- 効果音
+- 外部録音素材による効果音（軽量な合成打撃音は実装）
 - ボイス
 - 高品質パーティクル
 - 豪華なメニュー
-- ボス
+- 専用モデル・固有モーションを持つ完成版ボス（簡易中ボスは実装）
 - 複数ステージ
 - アイテム
 - 装備
@@ -313,22 +328,22 @@ Root / Instance
 サイズ：
 
 ```text
-70 × 70
+210 × 210
 ```
 
 プレイ可能範囲：
 
 ```text
-X = -33 ～ +33
-Z = -33 ～ +33
+X = -105 ～ +105（キャラクター半径を除く）
+Z = -105 ～ +105（キャラクター半径を除く）
 ```
 
 構成：
 
-- Ground
-- 外周の簡易柱
-- 簡易鳥居
-- 石灯籠風オブジェクト数個
+- 金剛門前、焔の西院、鐘楼の東院、蓮華の南庭
+- 拠点をつなぐ幅22の参道と回廊、炎、旗、石畳
+- 本堂、鐘楼、塀、岩、門柱の障害物
+- 建物と壁による移動・攻撃の遮蔽、敵の迂回経路
 
 中央戦闘域には移動を妨げる大型障害物を置かない。
 
@@ -394,8 +409,8 @@ Enterまたはボタンで開始。
 ```ts
 export const PLAYER_CONFIG = {
   maxHp: 1000,
-  moveSpeed: 8,
-  rotationSpeed: 12,
+  moveSpeed: 9,
+  rotationSpeed: 20,
 
   dodgeSpeed: 16,
   dodgeDuration: 0.30,
@@ -439,6 +454,9 @@ K         強攻撃
 L         仏技
 Space     回避
 Esc       Pause
+Q / E     視点旋回
+C         背後へ戻す
+M         効果音切替
 F3        Debug表示
 ```
 
@@ -454,35 +472,51 @@ Wは画面奥。
 
 Stage境界を超えない。
 
+入力の開始・方向変更時にカメラ方位から移動方向を決める。同じキーを押し続けている間は進路を保ち、
+背後追従カメラの回転に巻き込まれて円を描かないようにする。カメラは移動・回避方向へ滑らかに回り、
+停止中の攻撃方向補助には自動追従しない。Q/Eで任意旋回、Cでキャラクターの背後へ戻す。
+ミニマップはカメラ方位に合わせて回り、自分・敵・三拠点と討伐状況を表示する。
+
 ---
 
 # 18. 通常攻撃
 
 J。
 
-3段コンボ。
+3段コンボ。J長押しでも連続発動できる。
+各段の開始時に、前方200度・距離9以内の最も近い敵へ向きを補助する。
+移動入力があればその方向を優先してから補助し、各段で前方へ踏み込む。
 
 バランス：
 
 ```ts
 export const NORMAL_ATTACKS = [
   {
-    damage: 40,
-    radius: 3.0,
-    arcDeg: 110,
-    knockback: 3,
+    damage: 45,
+    radius: 5,
+    arcDeg: 160,
+    knockback: 3.5,
+    launch: 2.8,
+    lunge: 1.1,
+    duration: 0.28,
   },
   {
-    damage: 55,
-    radius: 3.5,
-    arcDeg: 130,
-    knockback: 4,
+    damage: 60,
+    radius: 5.8,
+    arcDeg: 200,
+    knockback: 5,
+    launch: 4,
+    lunge: 1.2,
+    duration: 0.30,
   },
   {
-    damage: 80,
-    radius: 4.5,
-    arcDeg: 170,
-    knockback: 8,
+    damage: 95,
+    radius: 7,
+    arcDeg: 250,
+    knockback: 13,
+    launch: 9,
+    lunge: 1.5,
+    duration: 0.38,
   },
 ];
 ```
@@ -498,9 +532,9 @@ export const NORMAL_ATTACKS = [
 参考：
 
 ```text
-Attack 1 total ≒ 0.45 sec
-Attack 2 total ≒ 0.48 sec
-Attack 3 total ≒ 0.60 sec
+Attack 1 total = 0.28 sec
+Attack 2 total = 0.30 sec
+Attack 3 total = 0.38 sec
 ```
 
 入力Buffer：
@@ -510,6 +544,9 @@ Attack 3 total ≒ 0.60 sec
 ```
 
 攻撃中にJが押されたら次段を予約できる。
+攻撃全体の12～65%で判定を行う。同一攻撃の多重Hitは引き続き防止する。
+通常攻撃の42%以降はKへ移行可能。Lは通常・強攻撃から即座に移行できる。
+攻撃中も通常速度の65%で移動でき、空振りで長く足止めしない。
 
 ---
 
@@ -521,10 +558,14 @@ K。
 
 ```ts
 export const STRONG_ATTACK = {
-  damage: 120,
-  radius: 6,
-  knockback: 12,
-  cooldown: 1.2,
+  damage: 145,
+  radius: 8,
+  arcDeg: 360,
+  knockback: 19,
+  launch: 12,
+  lunge: 0.55,
+  cooldown: 0.8,
+  duration: 0.48,
 };
 ```
 
@@ -546,14 +587,19 @@ L。
 
 ```ts
 export const BUDDHA_SKILL = {
-  damage: 300,
-  radius: 12,
-  knockback: 20,
+  damage: 320,
+  radius: 16,
+  arcDeg: 360,
+  knockback: 28,
+  launch: 17,
+  lunge: 0,
   powerCost: 100,
+  duration: 0.85,
 };
 ```
 
 周囲の敵を一気に外方向へ吹き飛ばす。
+発動中はプレイヤーを無敵とし、群衆の中でも最後まで演出・判定が成立する。
 
 ---
 
@@ -578,6 +624,7 @@ Kill：
 ```
 
 Skill発動で0。
+仏技自身のHit・Killでは仏力を獲得しない。通常攻撃・強攻撃で次の仏技を溜める。
 
 ---
 
@@ -599,19 +646,28 @@ cooldown = 0.50
 
 # 24. Enemy Config
 
+| 種別 | HP | 攻撃力 | 攻撃半径 | 特徴 |
+| --- | ---: | ---: | ---: | --- |
+| 雑兵 | 35 | 10 | 1.8 | 通常一撃。一般兵の75% |
+| 武者 | 180 | 22 | 2.4 | 青い鎧、一般兵の20% |
+| 重装兵 | 450 | 38 | 3.4 | 紫の鎧、大柄、一般兵の5% |
+| 怨将 | 1800 | 65 | 5.5 | 三拠点に1体ずつ。再出現しない |
+
+上位兵ほど吹き飛びを抑え、怨将は攻撃予備動作を被弾で中断しない。
+怨将は24以内で接敵し、1秒の範囲予告後に攻撃する。接近時は画面上部に名前と体力を表示する。
+一般の上位兵の頭上HPは被弾後だけ表示し、手前で画面を覆う巨大化を抑える。
+初期50体・目標70体は怨将3体も含む。残り93枠を一般兵で再利用する。
+
 ```ts
 export const ENEMY_CONFIG = {
-  maxHp: 100,
-  moveSpeedMin: 2.2,
-  moveSpeedMax: 3.2,
-
-  attackDamage: 15,
-  attackDistance: 1.8,
+  moveSpeedMin: 3.8,
+  moveSpeedMax: 5.2,
 
   attackIntervalMin: 1.5,
   attackIntervalMax: 2.5,
 
-  separationRadius: 1.2,
+  separationRadius: 0.95,
+  separationStrength: 2.3,
 };
 ```
 
@@ -663,7 +719,8 @@ Dead
 
 # 27. 敵追跡
 
-Playerへ直線的に接近。
+見通せる場合はPlayerへ直接接近し、建物に遮られる場合は障害物角を使った経路で迂回する。
+移動・吹き飛びは壁に沿って滑り、高速移動でも門柱を通り抜けない。壁越しの攻撃は命中しない。
 
 NavMesh不要。
 
@@ -722,36 +779,37 @@ Hit時にPlayerが無敵でなければDamage。
 初期：
 
 ```text
-20体
+50体
 ```
 
 目標：
 
 ```text
-50体
+70体
 ```
 
 最大：
 
 ```text
-60体
+96体
 ```
 
-プロトタイプでは50体前後を正式目標とする。
+プロトタイプでは70体前後を正式目標とする。開始から約1.1秒で目標数へ補充する。
+最大96体のPoolには、吹き飛ばし中の死亡体も含む。
 
 設定：
 
 ```ts
 export const SPAWN_CONFIG = {
-  initialEnemies: 20,
-  targetEnemies: 50,
-  maxEnemies: 60,
+  initialEnemies: 50,
+  targetEnemies: 70,
+  maxEnemies: 96,
 
-  minSpawnDistance: 14,
-  maxSpawnDistance: 28,
+  minSpawnDistance: 10,
+  maxSpawnDistance: 18,
 
-  spawnBatch: 5,
-  interval: 1,
+  spawnBatch: 10,
+  interval: 0.55,
 };
 ```
 
@@ -762,12 +820,12 @@ export const SPAWN_CONFIG = {
 プロトタイプでは：
 
 ```ts
-CLEAR_KILLS = 100;
+CLEAR_KILLS = 1000;
 ```
 
-100体撃破でクリア。
+1000体撃破かつ怨将3体を討伐するとクリア「一騎当千」。
 
-完成版MVPでは300へ増加可能。
+各拠点への移動と中ボス戦の間に、群衆戦・仏力蓄積・仏技を繰り返し体験する。
 
 ---
 
@@ -851,7 +909,10 @@ velocity += direction * knockbackPower;
 
 減衰させる。
 
-視覚的に少しY方向へ上がる演出は任意。
+Y位置・Y速度・回転角を敵データに持ち、重力25で空中を移動する。
+通常攻撃1・2段目は小さく浮かせ、3段目・強攻撃・仏技は大きく打ち上げる。
+空中の水平減衰率は1.9、着地後は9。地面を貫通しない。
+ノックバック中はAIを止め、着地してから追跡へ復帰する。
 
 ---
 
@@ -864,7 +925,7 @@ HP 0：
 3. Kill Count++
 4. Comboは既存Hitで加算済み
 5. 仏力加算
-6. 0.8秒程度吹き飛ぶ/縮小
+6. 1.55秒以上吹き飛び・回転・縮小し、着地を待つ
 7. 非表示
 8. Poolへ返却
 
@@ -877,7 +938,7 @@ Enemyを毎回new/deleteしない。
 初期Pool：
 
 ```text
-60～80
+96
 ```
 
 を確保。
@@ -930,7 +991,7 @@ weapon
 Phase 2ではGroup方式で開始し、
 Phase 4でInstancedMeshへ移行してよい。
 
-最終プロトタイプでは50体で30fps以上を満たすこと。
+最終プロトタイプでは70体で30fps以上を満たすこと。
 
 ---
 
@@ -995,7 +1056,7 @@ COMBO
 上または右上：
 
 ```text
-撃破 32 / 100
+撃破 320 / 1000
 ```
 
 左下：
@@ -1299,7 +1360,7 @@ Vitest。
 ```text
 成仏完了
 
-撃破数 100
+撃破数 1000
 最大COMBO 128
 戦闘時間 02:35
 
@@ -1371,7 +1432,7 @@ START
 ↓
 PLAYER MOVE
 ↓
-50 ENEMIES
+70 ENEMIES
 ↓
 J COMBO
 ↓
@@ -1381,7 +1442,7 @@ POWER 100
 ↓
 L BUDDHA SKILL
 ↓
-100 KILLS
+1000 KILLS
 ↓
 CLEAR
 ↓
@@ -1399,8 +1460,8 @@ RETRY
 - Stack
 - 操作キー
 - 基本Game Loop
-- 100 Kill Clear
-- 50 Enemy target
+- 1000 Kill + 怨将3体討伐でClear
+- 70 Enemy target（2026-09-29のユーザー要望により50から改訂）
 - 仏像 vs 落武者
 - J/K/L/Space
 
@@ -1414,11 +1475,11 @@ RETRY
 
 - 正式3Dアセット
 - Animation
-- BGM / SE
+- BGM / 外部録音SE
 - UI polish
 - 100体以上
 - MiniMap
-- ボス
+- 完成版ボス（簡易中ボスは実装済み）
 - 敵種類
 - ステージ追加
 

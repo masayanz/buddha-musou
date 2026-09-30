@@ -1,6 +1,6 @@
 {
   "name": "buddha-musou-prototype-spec",
-  "version": "1.0.0-prototype",
+  "version": "1.2.0-battlefield",
   "goal": "Minimum playable browser prototype",
   "documents": [
     "GAME_SPEC.md",
@@ -9,6 +9,7 @@
     "docs/ACCEPTANCE_TESTS.md",
     "docs/CODEX_RUNBOOK.md",
     "docs/ASSET_POLICY.md",
+    "docs/ART_DIRECTION.md",
     "CONTRIBUTING.md",
     "CODEX_START.md"
   ]
