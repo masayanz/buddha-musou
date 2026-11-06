@@ -22,7 +22,7 @@ export interface EnemyData {
   kind: EnemyKind; maxHp: number; name: string; scale: number; outpostId: string | null;
   routeTimer: number; waypointX: number; waypointZ: number;
 }
-export interface GameEvent { kind: 'slash' | 'strong' | 'skill' | 'hit' | 'death' | 'playerHit'; x: number; z: number; rotation?: number; attackKind?: AttackKind; attackStep?: number }
+export interface GameEvent { kind: 'slash' | 'strong' | 'skill' | 'hit' | 'death' | 'playerHit' | 'dodge' | 'powerReady'; x: number; z: number; rotation?: number; attackKind?: AttackKind; attackStep?: number }
 
 const initialPlayer = (): PlayerData => ({
   x: 0, z: 0, rotation: Math.PI, hp: PLAYER_CONFIG.maxHp, power: 0,
@@ -182,6 +182,7 @@ export class GameSession {
     if (input.skill && player.power >= BUDDHA_SKILL.powerCost) this.skillBuffer = COMBAT_CONFIG.inputBuffer;
 
     if (input.dodge && this.dodgeCooldown <= 1e-9 && player.attackKind !== 'skill') {
+      this.events.push({ kind: 'dodge', x: player.x, z: player.z, rotation: player.rotation });
       this.dodgeTimer = PLAYER_CONFIG.dodgeDuration;
       this.dodgeCooldown = PLAYER_CONFIG.dodgeCooldown;
       this.dodgeX = length > 0 ? mx : Math.sin(player.rotation);
@@ -421,7 +422,13 @@ export class GameSession {
         enemy.state = 'knockback'; enemy.timer = ENEMY_CONFIG.knockbackDuration;
       }
       // A skill spends the whole meter and does not immediately refill itself.
-      if (player.attackKind !== 'skill') player.power = Math.min(PLAYER_CONFIG.buddhistPowerMax, player.power + COMBAT_CONFIG.hitPower + (enemy.hp === 0 ? kind.powerReward : 0));
+      if (player.attackKind !== 'skill') {
+        const previousPower = player.power;
+        player.power = Math.min(PLAYER_CONFIG.buddhistPowerMax, player.power + COMBAT_CONFIG.hitPower + (enemy.hp === 0 ? kind.powerReward : 0));
+        if (previousPower < PLAYER_CONFIG.buddhistPowerMax && player.power >= PLAYER_CONFIG.buddhistPowerMax) {
+          this.events.push({ kind: 'powerReady', x: player.x, z: player.z });
+        }
+      }
     }
   }
 

@@ -48,7 +48,11 @@ describe('game flow and movement', () => {
   });
   it('dashes in input direction or facing and observes cooldown', () => {
     const game = makeGame(); parkEnemies(game);
-    tick(game, { dodge: true }); run(game, 17 / 60);
+    tick(game, { dodge: true });
+    expect(game.events.filter(event => event.kind === 'dodge')).toHaveLength(1);
+    tick(game, { dodge: true });
+    expect(game.events.filter(event => event.kind === 'dodge')).toHaveLength(1);
+    run(game, 17 / 60);
     expect(game.player.z).toBeCloseTo(-4.8);
     tick(game, { dodge: true }); expect(game.player.dodging).toBe(false);
     run(game, 0.3); tick(game, { dodge: true, moveX: 1 });
@@ -200,6 +204,19 @@ describe('player combat', () => {
     expect(game.player.power).toBe(100); expect(game.combo).toBe(0); expect(game.maxCombo).toBe(1);
     expect(['chase', 'windup']).toContain(game.enemies[3].state);
     expect(game.enemies.every((enemy, index) => enemy === references[index])).toBe(true);
+  });
+  it('emits powerReady only when earned power first reaches a full meter', () => {
+    const game = makeGame(); parkEnemies(game);
+    game.player.power = 99;
+    place(game.enemies[0], 0, -2);
+    tick(game, { attack: true }); run(game, 0.4);
+    expect(game.player.power).toBe(100);
+    expect(game.events.filter(event => event.kind === 'powerReady')).toHaveLength(1);
+
+    place(game.enemies[1], 0, -2);
+    tick(game, { attack: true }); run(game, 0.4);
+    expect(game.player.power).toBe(100);
+    expect(game.events.filter(event => event.kind === 'powerReady')).toHaveLength(1);
   });
 });
 

@@ -47,6 +47,7 @@ export class Game {
   private hitStop = 0;
   private slowMotion = 0;
   private lastImpactAttack = -1;
+  private lastDeathAttack = -1;
   private attackHitCount = 0;
   private readonly reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -150,7 +151,7 @@ export class Game {
     this.effects.reset();
     this.hero.reset();
     this.visualTime = 0;
-    this.hitStop = 0; this.slowMotion = 0; this.lastImpactAttack = -1; this.attackHitCount = 0;
+    this.hitStop = 0; this.slowMotion = 0; this.lastImpactAttack = -1; this.lastDeathAttack = -1; this.attackHitCount = 0;
     this.camera.follow(this.session.player.x, this.session.player.z, 0, true, this.session.player.rotation);
     this.updateVisuals(0);
   }
@@ -212,24 +213,34 @@ export class Game {
     }
 
     let hits = 0;
+    let deaths = 0;
     let impactKind = this.session.player.attackKind ?? 'normal';
     for (const event of this.session.events) {
-      if (event.kind === 'playerHit') { if (!this.reducedMotion) this.camera.shake(0.12); }
+      if (event.kind === 'playerHit') {
+        if (!this.reducedMotion) this.camera.shake(0.12);
+        this.audio.playerHit();
+      } else if (event.kind === 'dodge') this.audio.dodge();
+      else if (event.kind === 'powerReady') this.audio.powerReady();
       else this.effects.emit(event.kind, event.x, event.z, event.rotation, event.attackStep);
       if (event.kind === 'hit') { hits++; impactKind = event.attackKind ?? impactKind; }
-      if (event.kind === 'slash' || event.kind === 'strong' || event.kind === 'skill') this.audio.swing(event.kind === 'slash' ? 'normal' : event.kind);
+      if (event.kind === 'death') deaths++;
+      if (event.kind === 'slash' || event.kind === 'strong' || event.kind === 'skill') this.audio.swing(event.kind === 'slash' ? 'normal' : event.kind, event.attackStep);
     }
     if (hits > 0) {
       const firstHit = this.lastImpactAttack !== this.session.attackInstanceId;
       this.attackHitCount = firstHit ? hits : this.attackHitCount + hits;
       this.ui.combatFeedback(impactKind, this.attackHitCount, firstHit);
-      this.audio.impact(impactKind, hits);
       if (firstHit) {
+        this.audio.impact(impactKind, hits);
         this.lastImpactAttack = this.session.attackInstanceId;
         this.hitStop = impactKind === 'skill' ? 0.085 : impactKind === 'strong' ? 0.055 : 0.032;
         if (impactKind === 'skill') this.slowMotion = 0.38;
         if (!this.reducedMotion) this.camera.impact(impactKind === 'skill' ? 1 : impactKind === 'strong' ? 0.65 : 0.3);
       }
+    }
+    if (deaths > 0 && this.lastDeathAttack !== this.session.attackInstanceId) {
+      this.audio.enemyDeath(deaths);
+      this.lastDeathAttack = this.session.attackInstanceId;
     }
     this.session.events.length = 0;
     if (this.session.state !== 'paused') {
